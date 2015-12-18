@@ -272,7 +272,8 @@ int main( int argc, char** argv )
     {
       Point p = *it;
       float v = sqrt( d2( p ) );
-      v = std::min( (float)m, std::max( v, 0.0f ) ); 
+      v = std::min( (float)m, std::max( v, 0.0f ) );
+	  if (v < m* 0.5)
       viewer << CustomColors3D(Color(cmap_grad(v).red(), cmap_grad(v).green(), cmap_grad(v).blue(), 120), Color(cmap_grad(v).red(), cmap_grad(v).green(), cmap_grad(v).blue(),120) )
             << p;
 

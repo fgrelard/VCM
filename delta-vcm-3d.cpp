@@ -517,19 +517,19 @@ int main( int argc, char** argv )
   float            T2    = atof( argv[ 7 ] );
   unsigned char    seuil = atof( argv[ 8 ] );
 
-  {
-    Viewer3D<> viewer;
-    viewer.show();
+  // {
+  //   Viewer3D<> viewer;
+  //   viewer.show();
     
-    for ( Domain::ConstIterator it = img.domain().begin(), itE = img.domain().end();
-          it != itE; ++it )
-      {
-        // std::cout << *it << " " << (int) img( *it ) << endl;
-        if ( img( *it ) > seuil ) viewer << *it;
-      }
-    viewer << Viewer3D<>::updateDisplay;
-    application.exec();
-  }
+  //   for ( Domain::ConstIterator it = img.domain().begin(), itE = img.domain().end();
+  //         it != itE; ++it )
+  //     {
+  //       // std::cout << *it << " " << (int) img( *it ) << endl;
+  //       if ( img( *it ) > seuil ) viewer << *it;
+  //     }
+  //   viewer << Viewer3D<>::updateDisplay;
+  //   application.exec();
+  // }
 
   FloatImage3D     fimg( img.domain() );
   FloatImage3D::Iterator outIt = fimg.begin();
@@ -548,11 +548,11 @@ int main( int argc, char** argv )
   float m = 0.0f;
   for ( typename Domain::ConstIterator it = d2.domain().begin(),
           itE = d2.domain().end(); it != itE; ++it )
-    {
+  {
       Point p = *it;
       float v = sqrt( d2( p ) );
       m = std::max( v, m );
-    }
+  }
   
   // GradientColorMap<float> cmap_grad( 0, m );
   // cmap_grad.addColor( Color( 255, 255, 255 ) );
@@ -625,18 +625,18 @@ int main( int argc, char** argv )
       float display = tubular2 <= bound ? 0.0f : ( tubular2 - bound ) / (1.0f - bound);
       //: eval[ 1 ] / ( 1.0 + eval[ 0 ] ) / ( 1.0 + delta( p )*delta( p ) );
       //: eval[ 1 ] * eval[ 1 ] / ( 1.0 + eval[ 0 ] ) / ( 1.0 + delta( p ) );
-      if (display > 0.01f)
-        trace.info() << "l0=" << eval[ 0 ] << " l1=" << eval[ 1 ]
-                     << " tub=" << tubular
-                     << " tub2=" << tubular2
-                     << " disp=" << display << std::endl;
-      if (display > 0.5f*T2 )
+      // if (display > 0.01f)
+      //   trace.info() << "l0=" << eval[ 0 ] << " l1=" << eval[ 1 ]
+      //                << " tub=" << tubular
+      //                << " tub2=" << tubular2
+      //                << " disp=" << display << std::endl;
+      if (display > 0.9f*T2 )
         {
           viewer << CustomColors3D( Color::Black,
                                     colormap( display > T2 ? T2 : display ) )
                  << p;
           RealVector normal = evec.column( 0 );
-          RealPoint rp( p[ 0 ], p[ 1 ] ); 
+          RealPoint rp( p[ 0 ], p[ 1 ], p[ 2 ] ); 
           viewer.addLine( rp - size*normal, rp + size*normal );
         }
     }      
