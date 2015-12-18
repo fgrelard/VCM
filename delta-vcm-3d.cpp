@@ -536,7 +536,7 @@ int main( int argc, char** argv )
   for ( GrayLevelImage3D::ConstIterator it = img.begin(), itE = img.end();
         it != itE; ++it )
     {
-      float v = 2.0 * ((float)*it) / seuil; // 255.0;
+      float v = ((float)*it) / seuil; // 255.0;
       v = std::min( 255.0f, v );
       *outIt++ = v;
     }
@@ -630,7 +630,7 @@ int main( int argc, char** argv )
       //                << " tub=" << tubular
       //                << " tub2=" << tubular2
       //                << " disp=" << display << std::endl;
-      if (display > 0.9f*T2 )
+      if (display > 0.02f*T2 )
         {
           viewer << CustomColors3D( Color::Black,
                                     colormap( display > T2 ? T2 : display ) )
