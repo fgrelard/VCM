@@ -244,19 +244,24 @@ int main( int argc, char** argv )
 
   for ( typename Domain::ConstIterator it = d2.domain().begin(),
           itE = d2.domain().end(); it != itE; ++it )
-    {
+  {
       Point p = *it;
       float v = sqrt( d2( p ) );
-      v = std::min( (float)m, std::max( v, 0.0f ) ); 
+      v = std::min( (float)m, std::max( v, 0.0f ) );
+	  RealVector grad = delta.projection( p );
+	  board <<  CustomStyle( p.className(),
+							 new CustomColors( Color::Green, cmap_grad( v ) ) ) <<
+		  Point(p[0] + grad[0], p[1] + grad[1]);
       board << CustomStyle( p.className(),
                             new CustomColors( Color::Black, cmap_grad( v ) ) )
             << p;
 
-      RealVector grad = delta.projection( p );
+     
       // / ( 1.1 - ( (double)img( *it ) ) / 255.0 ) ;
+	 
       board.drawLine( p[ 0 ], p[ 1 ], p[ 0 ] + grad[ 0 ], p[ 1 ] + grad[ 1 ], 0 );
     }
   std::cout << endl;
-  board.saveEPS("delta2.eps");
+  board.saveSVG("delta2.svg");
   return 0;
 }
