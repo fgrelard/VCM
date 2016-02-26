@@ -50,6 +50,7 @@
 #include "DGtal/kernel/Point2ScalarFunctors.h"
 #include "DGtal/math/Histogram.h"
 #include "DGtal/math/Statistic.h"
+#include "DGtal/images/imagesSetsUtils/SetFromImage.h"
 
 using namespace std;
 using namespace DGtal;
@@ -139,6 +140,8 @@ struct DistanceToPointFunctor {
 		}
 	Distance myDistance;
 };
+
+
 
 
 // A measure is a function
@@ -388,7 +391,7 @@ struct DeltaVCM {
 
 	typedef ImageContainerBySTLVector<Domain,Matrix> MatrixField;
 
-	DeltaVCM( const DistanceLikeFunction& delta, float R, float r )
+	DeltaVCM( const DistanceLikeFunction& delta, double R, double r )
 		: myDelta( delta ), myR( R ), myr( r ),
 		  myVCM( delta.domain() ),
 		  myProjectedMeasure( delta.domain() )
@@ -437,7 +440,7 @@ struct DeltaVCM {
 	   @param p the point where the kernel function is moved. It must lie within domain.
 	*/
 	template <typename Point2ScalarFunction>
-	Matrix measure( Point2ScalarFunction chi_r, Point p ) const
+	Matrix measure( Point2ScalarFunction chi_r, Point p, int& i ) const
 		{
 			Integer r = (Integer) ceil( myr );
 			Point low = domain().lowerBound().sup( p - Point::diagonal( r ) );
@@ -446,6 +449,7 @@ struct DeltaVCM {
 			Domain local( low, up );
 			Scalar mass = 0.0;
 			Matrix M;
+			i = 0;
 			for ( typename Domain::ConstIterator it = local.begin(), itE = local.end();
 				  it != itE; ++it )
 			{
@@ -458,7 +462,9 @@ struct DeltaVCM {
 				// chi *= myProjectedMeasure( q ); // (2)
 				//trace.info() << "chi=" << chi << " VCM=" << myVCM( q ) << endl;
 				M += myVCM( q ); // workaround simplematrix bug in DGtal.
+				i++;
 			}
+			M /= i;
 			return M;
 		}
 
@@ -497,27 +503,43 @@ struct DeltaVCM {
 };
 
 
+template <typename Histogram>
+void computeHistogram(Histogram& hist, const std::vector<double>& values) {
+	Statistic<double> stats;
+	stats.addValues( values.begin(), values.end() );
+	stats.terminate(); // stats are computed.
+//	trace.info() << stats.min() << " " << minValue << " " << maxValue << " " << stats.min() << " " << stats.max() <<endl;
+	hist.init( Histogram::SquareRoot, stats );
+	hist.addValues( values.begin(), values.end() );
+	hist.terminate();
+	double myWidth = ( stats.max() - stats.min() ) / hist.size() ;
+}
+
 
 int main( int argc, char** argv )
 {
-	QApplication application(argc,argv);
 
 	using namespace DGtal;
 	using namespace DGtal::Z3i;
   
 	typedef ImageContainerBySTLVector<Domain,unsigned char> GrayLevelImage3D;
-	typedef ImageContainerBySTLVector<Domain,float>         FloatImage3D;
-	typedef DistanceToMeasure<FloatImage3D>                 Distance;
+	typedef ImageContainerBySTLVector<Domain,double>         DoubleImage3D;
+	typedef DistanceToMeasure<DoubleImage3D>                 Distance;
 	if ( argc <= 3 ) return 1;
 	GrayLevelImage3D img  = GenericReader<GrayLevelImage3D>::import( argv[ 1 ] );
-	float            mass = atof( argv[ 2 ] );
-	float            rmax = atof( argv[ 3 ] );
-	float            R    = atof( argv[ 4 ] );
-	float            r    = atof( argv[ 5 ] );
-	float            T1    = atof( argv[ 6 ] );
-	float            T2    = atof( argv[ 7 ] );
+	double            mass = atof( argv[ 2 ] );
+	double            rmax = atof( argv[ 3 ] );
+	double            R    = atof( argv[ 4 ] );
+	double            r    = atof( argv[ 5 ] );
+	double            T1   = atof( argv[ 6 ] );
+	double            T2    = atof( argv[ 7 ] );
 	unsigned char    seuil = atof( argv[ 8 ] );
+	QApplication application(argc,argv);
 
+	Z3i::DigitalSet referenceSet(img.domain());
+	SetFromImage<Z3i::DigitalSet>::append<GrayLevelImage3D>(referenceSet, img, 
+													  1, 255);
+	
 	// {
 	//   Viewer3D<> viewer;
 	//   viewer.show();
@@ -532,30 +554,30 @@ int main( int argc, char** argv )
 	//   application.exec();
 	// }
 
-	FloatImage3D     fimg( img.domain() );
-	FloatImage3D::Iterator outIt = fimg.begin();
+	DoubleImage3D     fimg( img.domain() );
+	DoubleImage3D::Iterator outIt = fimg.begin();
 	for ( GrayLevelImage3D::ConstIterator it = img.begin(), itE = img.end();
 		  it != itE; ++it )
     {
-		float v = ((float)*it) / seuil; // 255.0;
-		v = std::min( 255.0f, v );
+		double v = ((double)*it) / seuil; // 255.0;
+		v = std::min( 255.0, v );
 		*outIt++ = v;
     }
 	trace.beginBlock( "Computing delta-distance." );
 	Distance     delta( mass, fimg, rmax );
-	const FloatImage3D& d2 = delta.myDistance2;
+	const DoubleImage3D& d2 = delta.myDistance2;
 	trace.endBlock();
 
-	float m = 0.0f;
+	double m = 0.0f;
 	for ( typename Domain::ConstIterator it = d2.domain().begin(),
 			  itE = d2.domain().end(); it != itE; ++it )
 	{
 		Point p = *it;
-		float v = sqrt( d2( p ) );
+		double v = sqrt( d2( p ) );
 		m = std::max( v, m );
 	}
   
-	// GradientColorMap<float> cmap_grad( 0, m );
+	// GradientColorMap<double> cmap_grad( 0, m );
 	// cmap_grad.addColor( Color( 255, 255, 255 ) );
 	// cmap_grad.addColor( Color( 255, 255, 0 ) );
 	// cmap_grad.addColor( Color( 255, 0, 0 ) );
@@ -570,8 +592,8 @@ int main( int argc, char** argv )
 	//         itE = d2.domain().end(); it != itE; ++it )
 	//   {
 	//     Point p = *it;
-	//     float v = sqrt( d2( p ) );
-	//     v = std::min( (float)m, std::max( v, 0.0f ) ); 
+	//     double v = sqrt( d2( p ) );
+	//     v = std::min( (double)m, std::max( v, 0.0f ) ); 
 	//     viewer << CustomColors3D(Color(cmap_grad(v).red(), cmap_grad(v).green(), cmap_grad(v).blue(), 120), Color(cmap_grad(v).red(), cmap_grad(v).green(), cmap_grad(v).blue(),120) )
 	//           << p;
 
@@ -589,88 +611,138 @@ int main( int argc, char** argv )
 	trace.endBlock();
 
 
-	typedef EigenDecomposition<3,float> LinearAlgebraTool;
-	typedef functors::HatPointFunction<Point,float> KernelFunction;
+	typedef EigenDecomposition<3,double> LinearAlgebraTool;
+	typedef functors::HatPointFunction<Point,double> KernelFunction;
 	KernelFunction chi( 1.0, r );
 
 	// Flat zones are metallic blue, slightly curved zones are white,
 	// more curved zones are yellow till red.
-	double size = 1.0;
-	GradientColorMap<double> colormap( 0.0, T2 );
-	colormap.addColor( Color( 128, 128, 255 ) );
-	colormap.addColor( Color( 255, 255, 255 ) );
-	colormap.addColor( Color( 255, 255, 0 ) );
-	colormap.addColor( Color( 255, 0, 0 ) );
+	double size = 10.0;
+
 	Matrix vcm_r, evec, null;
-	typedef PointVector<3,float> RealVector3f;
-	RealVector3f eval;
+	typedef PointVector<3,double> RealVector3f;
+	RealVector eval;
 
 	Viewer3D<> viewer;
 	viewer.show();
   
 
 	vector<double> tubValues;
+	vector<double> tubValues1;
+	vector<double> tubValues2;
 	Point lower = img.domain().lowerBound(), upper = img.domain().upperBound();
 	
-	float lambdaMax = sqrt(3) * (rmax*rmax-1) / 2.0;
-	float volumeDI = 4 * M_PI * pow(r, 3) / 3.;
-	float residual = 10e-5;
-	float lambdaMin = volumeDI * residual;
-	float minValue = 4 * M_PI * lambdaMax * 1 * 1 / 3.;
-	float maxValue = 4 * M_PI * lambdaMax * lambdaMax * 1 / 3.;
+	double lambdaMax = sqrt(3) * (rmax*rmax-1) / 2.0;
+	double angle = M_PI / 4.;
+
+
+	
+	
+	GradientColorMap<double> colormap( 0.0,  T2);
+	colormap.addColor( Color( 128, 128, 255 ) );
+	colormap.addColor( Color( 255, 255, 255 ) );
+	colormap.addColor( Color( 255, 255, 0 ) );
+	colormap.addColor( Color( 255, 0, 0 ) );
+	RealPoint pointMax;
 	for ( Domain::ConstIterator it = dvcm.domain().begin(), itE = dvcm.domain().end();
 		  it != itE; ++it )
     {
 		
 		// Compute VCM and diagonalize it.
 		Point p = *it;
-		vcm_r = dvcm.measure( chi, p );
+		int i;
+		vcm_r = dvcm.measure( chi, p,i );
 		if ( vcm_r == null ) continue;
 		LinearAlgebraTool::getEigenDecomposition( vcm_r, evec, eval );
 		//double feature = eval[ 0 ] / ( eval[ 0 ] +  eval[ 1 ] );
-		eval[ 0 ] = std::max( eval[ 0 ], 0.00001f );
-		float tubular = ( eval[ 2 ] <= 0.00001f ) // (R*R/4.0) )
+		eval[ 0 ] = std::max( eval[ 0 ], 0.00001 );
+	    double tubular = ( eval[ 2 ] <= 0.00001 ) // (R*R/4.0) )
 			? 0
 			: ( ( eval[1] + eval[ 2 ] ) / ( eval[ 0 ] + eval[ 1 ] + eval[ 2 ] ) );
 	 
-		float bound = T1;
-		float tubular2 = tubular * (eval[ 0 ] + eval[ 1 ] + eval[ 2 ] ) / (R*R*r*r*3.14f/12.0f);
-		float display = tubular2 <= bound ? 0.0f : ( tubular2 - bound ) / (1.0f - bound);
-		float det = eval[0] * eval[1] * eval[2];
-		float volume = 4 * M_PI * sqrt(det) / 3.;
-	  
-	 
+		double bound = T1;
+		double tubular2 = tubular * (eval[ 0 ] + eval[ 1 ] + eval[ 2 ] ) / (R*R*r*r*3.14f/12.0f);
+		double display = tubular2 <= bound ? 0.0f : ( tubular2 - bound ) / (1.0f - bound);
+	    double det = eval[0] * eval[1] * eval[2];
+		double volume = 4 * M_PI * sqrt(det) / 3.;
+		RealVector v3 = evec.column(2) * eval[2];
+		RealVector v3rotated( v3[0] * cos(angle) - v3[1] * sin(angle),
+							  v3[0] * sin(angle) + v3[1] * cos(angle),
+							  v3[2] );
+		RealVector diff(v3 - v3rotated);
+		double lambda2Th = sqrt(pow(diff[0], 2) + pow(diff[1], 2) + pow(diff[2], 2)) / 2.0;
+		if (lambda2Th == 0)
+			lambda2Th = 1;
+		double minValue = 4 * M_PI * sqrt(eval[2]) * 1 * 1 / 3.;
+		double maxValue = 4 * M_PI * sqrt(eval[2]) * lambda2Th * 1 / 3.;
+
+		double rb = eval[0] / sqrt(eval[1] + eval[2]);
+		double ra = eval[1] / eval[2];
+		double ta = 0.5;
+		double tb = 0.5;
+		double vesselness = (1 - exp(-(pow(ra, 2)/(2*ta*ta))))*exp(-(pow(rb, 2)/(2*tb*tb)));
+		
+		RealPoint current(eval[0], eval[1], eval[2]);
+		if (current > pointMax)
+			pointMax = current;
 		tubValues.push_back(eval[0]);
+		tubValues1.push_back(eval[1]);
+		tubValues2.push_back(eval[2]);
 		//: eval[ 1 ] / ( 1.0 + eval[ 0 ] ) / ( 1.0 + delta( p )*delta( p ) );
 		//: eval[ 1 ] * eval[ 1 ] / ( 1.0 + eval[ 0 ] ) / ( 1.0 + delta( p ) );
 		// if (display > 0.01f)
-		//   trace.info() << "l0=" << eval[ 0 ] << " l1=" << eval[ 1 ]
+		// trace.info() << "l0=" << eval[ 0 ] << " l1=" << eval[ 1 ]
 		//                << " tub=" << tubular
 		//                << " tub2=" << tubular2
 		//                << " disp=" << display << std::endl;
-		//if (display > 0.02f*T2 )
-		if (volume > minValue &&  volume < maxValue )
-        {
+		// if (display > 0.3f*T2 )
+		
+		// if (referenceSet.find(*it) != referenceSet.end())
+		// 	viewer << CustomColors3D(Color::Red, Color::Red);
+		// else
+		// 	viewer << CustomColors3D(Color::Blue, Color::Blue);
+		// 	if (referenceSet.find(*it) != referenceSet.end())
+		// viewer << Point(sqrt(eval[0]), sqrt(eval[1]), sqrt(eval[2]))*factor;
+
+		double factor = 5;
+
+		double dividerL2 = sqrt(3)*(pow(rmax,2) - 1) / 2.;
+		double dividerL1 = 2*(tan(M_PI/pow(2,i)) * dividerL2);
+		double lambda1 = sqrt(eval[1]) / dividerL2;
+		double lambda2 = sqrt(eval[2]) / dividerL2;
+		double lambda0 = sqrt(eval[0]) / dividerL2;
+		double ratio = (lambda1 + lambda2) / (lambda0 + lambda1 + lambda2) ;
+		//ratio = (eval[1] + eval[2]) / (eval[0] + eval[1] + eval[2]);
+		if (display > 0.01f)
+		{        
 			viewer << CustomColors3D( Color::Black,
-									  colormap( display > T2 ? T2 : display ) )
+									  colormap( volume > maxValue ? maxValue : volume ) )
 				   << p;
-			RealVector normal = evec.column( 0 );
-			RealPoint rp( p[ 0 ], p[ 1 ], p[ 2 ] ); 
-			viewer.addLine( rp - size*normal, rp + size*normal );
+			RealVector normal = evec.column( 2 );
+			RealPoint rp( p[ 0 ], p[ 1 ], p[ 2 ] );
+//				viewer.addLine( rp - size*normal, rp + size*normal );
         }
     }
+	Histogram<double> histo, histo1, histo2;
+	computeHistogram(histo, tubValues);
+	computeHistogram(histo1, tubValues1);
+	computeHistogram(histo2, tubValues2);
+	
 	Statistic<double> stats;
-	stats.addValues( tubValues.begin(), tubValues.end() );
+	stats.addValues( tubValues2.begin(), tubValues2.end() );
 	stats.terminate(); // stats are computed.
-	trace.info() << stats.min() << " " << minValue << " " << maxValue << endl;
-	Histogram<double>* hist = new Histogram<double>();
-	hist->init( Histogram<double>::SquareRoot, stats );
-	hist->addValues( tubValues.begin(), tubValues.end() );
-	hist->terminate();
-	double myWidth = ( stats.max() - stats.min() ) / hist->size() ;
-	for (unsigned int i = 0; i < hist->size(); i++) {
-		std::cout << i*myWidth+stats.min() << " " << hist->pdf(i) << endl;
+
+	trace.info() << stats.max() << endl;
+	
+	//double myWidth = ( stats.max() - stats.min() ) / hist->size() ;
+	unsigned int size_histo = max(histo.size(), max(histo1.size(), histo2.size()));
+	for (unsigned int i = 0; i < size_histo; i++) {
+		//	std::cout << i << " " << ((i < histo.size()) ? histo.pdf(i) : 0.0)
+		//		  << " " << ((i < histo1.size()) ? histo1.pdf(i) : 0.0)
+		//		  << " " << ((i < histo2.size()) ? histo2.pdf(i) : 0.0)
+		//		  << endl;
 	}
+//	trace.info() << pointMax << endl;
 	viewer << Viewer3D<>::updateDisplay;
 	application.exec();
 	return 0;
