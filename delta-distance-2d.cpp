@@ -260,6 +260,7 @@ int main( int argc, char** argv )
       // / ( 1.1 - ( (double)img( *it ) ) / 255.0 ) ;
 	 
       board.drawLine( p[ 0 ], p[ 1 ], p[ 0 ] + grad[ 0 ], p[ 1 ] + grad[ 1 ], 0 );
+
     }
   std::cout << endl;
   board.saveSVG("delta2.svg");

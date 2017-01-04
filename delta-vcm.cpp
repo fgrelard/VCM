@@ -180,17 +180,23 @@ public:
     double       nb = myDistance2.domain().size();
     unsigned int i  = 0;
     trace.progressBar( i, nb );
+	Point lowerBound = myDistance2.domain().lowerBound();
+	Point upperBound = myDistance2.domain().upperBound();
     for ( typename Domain::ConstIterator it = myDistance2.domain().begin(),
             itE = myDistance2.domain().end(); it != itE; ++it, ++i )
       {
         if ( ( i % 100 ) == 0 ) trace.progressBar( i, nb );
-        myDistance2.setValue( *it, computeDistance2( *it ) );
+
+			myDistance2.setValue( *it, computeDistance2( *it ) );
       }
   }
 
-  inline const Domain& domain() const
+	inline Domain domain() const
   {
-    return myMeasure.domain();
+	Point lowerBound = myDistance2.domain().lowerBound() + Point::diagonal(myRMax);
+	Point upperBound = myDistance2.domain().upperBound() - Point::diagonal(myRMax);
+	Domain domain(lowerBound, upperBound);
+	return domain;
   }
 
   inline const ImageFct& measure() const
@@ -228,8 +234,8 @@ public:
   
   Point box( const Point& p ) const
   {
-    Point q = p.sup( myDistance2.domain().lowerBound() );
-    return q.inf( myDistance2.domain().upperBound() );
+    Point q = p.sup( domain().lowerBound() );
+    return q.inf( domain().upperBound() );
   }
 
   RealVector projection( const Point& p ) const
@@ -238,6 +244,8 @@ public:
     Point p_right = box( p + Point( 1, 0 ) );
     Point p_down = box( p - Point( 0, 1 ) );
     Point p_up = box( p + Point( 0, 1 ) );
+	if (p_left == p || p_right == p || p_down == p || p_up == p)
+		return RealVector();
     Value d2_center = distance2( p );
     Value d2_left = distance2( p_left );
     Value d2_right = distance2( p_right );
@@ -285,7 +293,6 @@ public:
       DistanceVisitor;
     typedef typename DistanceVisitor::Node MyNode;
     typedef typename DistanceVisitor::Scalar MySize;
-
     Value             m  = NumberTraits<Value>::ZERO;
     Value             d2 = NumberTraits<Value>::ZERO;
     Graph             graph;
@@ -377,7 +384,7 @@ struct DeltaVCM {
       }
   }
 
-  inline const Domain& domain() const
+  inline Domain domain() const
   {
     return myDelta.domain();
   }
@@ -400,6 +407,8 @@ struct DeltaVCM {
     Integer r = (Integer) ceil( myr );
     Point low = domain().lowerBound().sup( p - Point::diagonal( r ) );
     Point up = domain().upperBound().inf( p + Point::diagonal( r ) );
+	if (low < domain().lowerBound())
+		trace.info() << low << endl;
     //trace.info() << "r=" << r << " low=" << low << " up=" << up << std::endl;
     Domain local( low, up );
     Scalar mass = 0.0;
@@ -412,7 +421,7 @@ struct DeltaVCM {
         if ( chi <= 0.0 ) continue;
         // JOL: to check : I don't know if you should weight chi by the measure.
         // (0) no correction
-        chi *= myDelta.measure()( q );     // (1) more stable than (2) and (0)
+        //chi *= myDelta.measure()( q );     // (1) more stable than (2) and (0)
         // chi *= myProjectedMeasure( q ); // (2)
         //trace.info() << "chi=" << chi << " VCM=" << myVCM( q ) << endl;
         M += ::operator*(chi, myVCM( q ) ); // workaround simplematrix bug in DGtal.
@@ -503,8 +512,8 @@ int main( int argc, char** argv )
   Board2D board;
   board << SetMode( d2.domain().className(), "Paving" );
   
-  for ( typename Domain::ConstIterator it = d2.domain().begin(),
-          itE = d2.domain().end(); it != itE; ++it )
+  for ( typename Domain::ConstIterator it = delta.domain().begin(),
+			itE = delta.domain().end(); it != itE; ++it )
     {
       Point p = *it;
       double v = sqrt( d2( p ) );
@@ -540,7 +549,7 @@ int main( int argc, char** argv )
   }
 
   typedef EigenDecomposition<2,double> LinearAlgebraTool;
-  typedef functors::HatPointFunction<Point,double> KernelFunction;
+  typedef functors::BallConstantPointFunction<Point,double> KernelFunction;
   KernelFunction chi( 1.0, r );
 
   // Flat zones are metallic blue, slightly curved zones are white,
@@ -553,6 +562,7 @@ int main( int argc, char** argv )
   colormap.addColor( Color( 255, 0, 0 ) );
   Matrix vcm_r, evec, null;
   RealVector eval;
+  trace.info() << dvcm.domain().lowerBound() << " " << dvcm.domain().upperBound() << endl;
   for ( Domain::ConstIterator it = dvcm.domain().begin(), itE = dvcm.domain().end();
         it != itE; ++it )
     {
@@ -571,19 +581,19 @@ int main( int argc, char** argv )
       double display = tubular2 <= bound ? 0.0 : ( tubular2 - bound ) / (1.0 - bound);
       //: eval[ 1 ] / ( 1.0 + eval[ 0 ] ) / ( 1.0 + delta( p )*delta( p ) );
       //: eval[ 1 ] * eval[ 1 ] / ( 1.0 + eval[ 0 ] ) / ( 1.0 + delta( p ) );
-      trace.info() << "l0=" << eval[ 0 ] << " l1=" << eval[ 1 ]
-                   << " tub=" << tubular
-                   << " tub2=" << tubular2
-                   << " disp=" << display << std::endl;
+      // trace.info() << "l0=" << eval[ 0 ] << " l1=" << eval[ 1 ]
+      //              << " tub=" << tubular
+      //              << " tub2=" << tubular2
+      //              << " disp=" << display << std::endl;
       board << CustomStyle( p.className(), 
                             new CustomColors( Color::Black,
                                               colormap( display > T2 ? T2 : display ) ) )
             << p;
       // Display normal
-      RealVector normal = evec.column( 0 );
+      RealVector normal = evec.column( 1 );
       RealPoint rp( p[ 0 ], p[ 1 ] ); 
       Display2DFactory::draw( board, size*normal, rp );
-      Display2DFactory::draw( board, -size*normal, rp );
+//      Display2DFactory::draw( board, -size*normal, rp );
     }      
   board.saveEPS("dvcm-hat-r.eps");
   board.clear();

@@ -73,6 +73,7 @@ SET(VCM_QGL_SRC
   # area-integration
   # vol2offAndNormals
   # heightfield2offAndNormals
+
   )
 
 #add_definitions( -DWITH_EIGEN=YES )
