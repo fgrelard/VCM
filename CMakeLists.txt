@@ -66,13 +66,13 @@ SET(VCM_QGL_SRC
   delta-vcm-3d
   dvcm-3d
   dvcm-features-3d
-  implicitShape3NormalEstimation
-  noisyImplicitShape3NormalEstimation
-  generic3dNormalEstimators
-  angle-viewer
-  area-integration
-  vol2offAndNormals
-  heightfield2offAndNormals
+  # implicitShape3NormalEstimation
+  # noisyImplicitShape3NormalEstimation
+  # generic3dNormalEstimators
+  # angle-viewer
+  # area-integration
+  # vol2offAndNormals
+  # heightfield2offAndNormals
   )
 
 #add_definitions( -DWITH_EIGEN=YES )
